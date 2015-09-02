@@ -24,5 +24,28 @@ Given the following folder structure:
 
 The above example row would match the `foo_*.*` and `baz.html` files and rename them to `bar_1.jpg`, `bar_2.png`, `bar_3.gif`, and `baz.txt` respectively.
 
+# Options
+
+## `--help`,`help`, and `-h`
+Shows a help message.
+
+## `--dryrun`, `-d`
+Writes out renames to console rather than actually doing them.
+
+Sample output:
+
+    images/highres/foo_1.jpg → images/highres-renamed/bar_1.jpg
+
+## `--verbose`, `-v`
+Dumps configuration and other extra information to console as it runs.
+
+## `-i`
+Sets the folder where images are detected.
+
+## `-o`
+Sets the folder where images are moved to after renames. (if the same as `-i` then renames are done in place)
+
 # Roadmap
-Potential support of regular expressions and variable renaming.
+Some additional functionality would be nice to have. Such as:
+
+* Potential support of regular expressions and variable renaming.
