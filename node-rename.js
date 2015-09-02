@@ -34,6 +34,7 @@ function _printHelpAndQuit(){
 		'-v, --verbose        Output extra information to the command line.',
 		'-d, --dryrun         Execute a dry run. Don\'t actually rename and output',
 		'                     log information to command line.',
+		'-c, --copy           Copy files rather than renaming.',
 		'-i=val               image folder to search; defaults to \'images\'',
 		'-o=val               image folder to rename files into; defaults to ',
 		'                     \'renamed-images\'.',
@@ -83,6 +84,11 @@ function _processArguments () {
 			settings.verbose=true
 			return
 		}
+		// set the mode to copy rather than rename
+		if (val.indexOf('-c') > -1 || val==='--copy'){
+			settings.copy=true
+			return
+		}
 		// last argument should always be the mapping input file
 		if (index===array.length-1) {
 			settings.inputFile = path.resolve(expandHomeDir(val))
@@ -94,6 +100,34 @@ function _processArguments () {
 }
 
 /************ CORE APPLICATION LOGIC ************/
+
+/**
+ * File copy mechanism.
+ * @see http://stackoverflow.com/a/14387791/89789
+ */
+function copy(source, target, cb) {
+  var cbCalled = false;
+
+  var rd = fs.createReadStream(source);
+  rd.on("error", function(err) {
+    done(err);
+  });
+  var wr = fs.createWriteStream(target);
+  wr.on("error", function(err) {
+    done(err);
+  });
+  wr.on("close", function(ex) {
+    done();
+  });
+  rd.pipe(wr);
+
+  function done(err) {
+    if (!cbCalled && cb) {
+      cb(err);
+      cbCalled = true;
+    }
+  }
+}
 
 /**
  * Returns an object with the following keys:
@@ -110,16 +144,22 @@ function _processArguments () {
 function makeMatch(matchingFile, matchRule) {
 	return {
 		'oldFileName': matchingFile,
-		'newFileName': matchingFile.replace(matchRule.old_bundle_id, matchRule.new_bundle_id),
-		'matchKey': matchRule.old_bundle_id,
-		'destinationKey': matchRule.new_bundle_id
+		'newFileName': matchingFile.replace(matchRule.old_name, matchRule.new_name),
+		'matchKey': matchRule.old_name,
+		'destinationKey': matchRule.new_name
 	}
 }
 
 function matchFiles(matchRule) {
+	// skip useless operations
+	if (matchRule.old_name == matchRule.new_name)
+		return
+
+	// be loud if wanted
 	if (settings.verbose)
 		console.log('Attempting to match for rule: %s', _dumpObject(matchRule))
 
+	// loop through all files
 	fs.readdir(settings.imageFolder, function(err, files){
 		if (!err) {
 			processFileList(files, matchRule);
@@ -130,17 +170,31 @@ function matchFiles(matchRule) {
 }
 
 function processFileList(files, matchRule) {
-	var rx = new RegExp(matchRule.old_bundle_id, 'i'),
+	var rx = new RegExp(matchRule.old_name, 'i'),
 			fileName;
 
 	files.forEach(function(file, index, arr){
-		var match;
+		var match, oldFile, newFile;
+
 		if (rx.test(file)){
 			match = makeMatch(file, matchRule)
-			rename(
-				path.resolve(settings.imageFolder, match.oldFileName), 
-				path.resolve(settings.outputFolder, match.newFileName)
-			)
+			oldFile = path.resolve(settings.imageFolder, match.oldFileName)
+			newFile = path.resolve(settings.outputFolder, match.newFileName)
+
+			if(settings.dryrun) {
+
+				console.log('%s %s %s', oldFile, '→'.bold, newFile)
+
+			} else {
+
+				if (settings.copy) {
+					copy(oldFile,newFile)
+				} else {
+					rename(oldFile,newFile)
+				}
+
+			}
+
 		}
 	})
 }
@@ -154,12 +208,8 @@ function parseError (err, data) {
 	}
 }
 
-function rename(oldFile, newName){
-	if(settings.dryrun) {
-		console.log('%s %s %s', oldFile, '→'.bold, newName)
-	} else {
-		fs.rename(oldFile, newName, renameCallback)
-	}
+function rename(oldFile, newFile){
+	fs.rename(oldFile, newFile, renameCallback)
 }
 
 function renameCallback(err) {
@@ -190,13 +240,13 @@ function main() {
 	if (settings.dryrun)
 		console.log('Starting dry run...')
 
-	/* debugging stuff 
-	fs.readdir(settings.imageFolder, function(err, files){
-		if (!err){
-			console.log('File list...\n%s', _dumpObject(files))
-		}
-		else {throw err}
-	})*/
+	// make sure the output dir exists
+	if (!settings.dryrun && !fs.existsSync(settings.outputFolder)) {
+		if (settings.verbose)
+			console.log('Creating output folder...')
+
+		fs.mkdirSync(settings.outputFolder)
+	}
 
 	parser = parse(settings.parseOptions)
 
@@ -208,7 +258,7 @@ function main() {
 	parser.on('error', parseError)
 
 	parser.on('finish', function(){
-		console.info('Completed processing input file.')
+		console.info('Completed processing input file.'.green)
 		inputStream.close()
 	})
 
