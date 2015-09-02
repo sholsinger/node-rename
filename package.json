@@ -1,0 +1,11 @@
+{
+	"name": "node-rename",
+	"description": "A package for renaming images based on CSV files with 1-ish:1-ish mappings",
+	"main": "node-rename.js",
+	"dependencies": {
+		"csv-parse": "*",
+		"stream-transform": "*",
+		"colors": "*",
+		"expand-home-dir": "*"
+	}
+}
