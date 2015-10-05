@@ -33,18 +33,18 @@ function _printHelpAndQuit(){
 		'',
 		'Options:',
 		'-v, --verbose        Output extra information to the command line.',
-		'-d, --dryrun         Execute a dry run. Don\'t actually rename and output',
-		'                     log information to command line.',
+		'-d, --dryrun         Execute a dry run. Don\'t actually rename/copy and',
+		'                     outputlog information to command line.',
 		'-c, --copy           Copy files rather than renaming.',
 		'-i=val               image folder to search; defaults to \'images\'',
 		'-o=val               image folder to rename files into; defaults to ',
 		'                     \'renamed-images\'.',
 		'',
-		'Thanks for using this software. See: http://jmp.t3hco.de/node-rename'
+		'Thanks for using this software. See: http://jmp.t3hco.de/noderename'
 	].forEach(function(line, index, array) {
 		console.log.call(console, line)
-	});
-	process.exit(0);
+	})
+	process.exit(0)
 }
 
 /**
