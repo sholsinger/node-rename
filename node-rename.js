@@ -15,7 +15,8 @@ var fs = require('fs'),
 			parseOptions: {
 				delimiter: ',',
 				columns: true
-			}
+			},
+			copy: false
 		},
 		outputFolderStatus = false,
 		matchedFileStream;
@@ -70,33 +71,36 @@ function _processArguments () {
 			return
 		}
 		// set the image folder
-		if (val.indexOf('-i') > -1) {
+		if (val.indexOf('-i') == 0) {
 			settings.imageFolder = path.resolve(expandHomeDir(val.slice(3)))
 			return
 		}
 		// set the renamed images folder
-		if (val.indexOf('-o') > -1) {
+		if (val.indexOf('-o') == 0) {
 			settings.outputFolder = path.resolve(expandHomeDir(val.slice(3)))
 			return
 		}
 		// set the verbose flag
-		if (val.indexOf('-v') > -1 || val==='--verbose'){
+		if (val==='-v' || val==='--verbose'){
 			settings.verbose=true
 			return
 		}
 		// set the mode to copy rather than rename
-		if (val.indexOf('-c') > -1 || val==='--copy'){
+		if (val==='-c' || val==='--copy'){
 			settings.copy=true
 			return
 		}
 		// last argument should always be the mapping input file
 		if (index===array.length-1) {
-			settings.inputFile = path.resolve(expandHomeDir(val))
+			settings.inputFile = path.resolve(val)
 			return
 		}
 	});
 	// dump settings if verbose mode is enabled.
-	if(settings.verbose){_logSettings()}
+	if(settings.verbose){
+		console.log("Processed arguments: %s", JSON.stringify(process.argv))
+		_logSettings()
+	}
 }
 
 /************ CORE APPLICATION LOGIC ************/
@@ -106,25 +110,25 @@ function _processArguments () {
  * @see http://stackoverflow.com/a/14387791/89789
  */
 function copy(source, target, cb) {
-  var cbCalled = false;
+  var cbCalled = false
 
-  var rd = fs.createReadStream(source);
+  var rd = fs.createReadStream(source)
   rd.on("error", function(err) {
-    done(err);
+    done(err)
   });
-  var wr = fs.createWriteStream(target);
+  var wr = fs.createWriteStream(target)
   wr.on("error", function(err) {
-    done(err);
+    done(err)
   });
   wr.on("close", function(ex) {
-    done();
+    done()
   });
-  rd.pipe(wr);
+  rd.pipe(wr)
 
   function done(err) {
     if (!cbCalled && cb) {
-      cb(err);
-      cbCalled = true;
+      cb(err)
+      cbCalled = true
     }
   }
 }
@@ -142,18 +146,49 @@ function copy(source, target, cb) {
  * @param matchRule : Object - the match rule from the mapping file
  */
 function makeMatch(matchingFile, matchRule) {
+	var newName = matchingFile.replace(matchRule.old_name, matchRule.new_name)
+	var renumber = (matchRule.hasOwnProperty("renumber") && matchRule.renumber!=="false") ? parseInt(matchRule.renumber, 10) : "false"
+	if (renumber!=="false") {
+		newName = renumberFileName(newName, renumber)
+	}
+
 	return {
 		'oldFileName': matchingFile,
-		'newFileName': matchingFile.replace(matchRule.old_name, matchRule.new_name),
+		'newFileName': newName,
 		'matchKey': matchRule.old_name,
-		'destinationKey': matchRule.new_name
+		'destinationKey': matchRule.new_name,
+		'renumber': (matchRule.renumber)
 	}
+}
+
+/**
+ * Renumbers a filename eg:
+ * renumberFileName('foo_1.png', 4) returns 'foo_5.png'
+ * @param oldPath : String The old file name
+ * @param startIndex : Number The number by which to increase the number in the file's name
+ * @return new file name.
+ */
+function renumberFileName(oldPath, startIndex) {
+	var match = /([\d]+)\.[\w]+$/i.exec(oldPath),
+			index,
+			newPath;
+
+	if (match && match.length > 1) {
+		index = parseInt(match[1], 10)
+		newPath = oldPath.replace(match[0], match[0].replace(match[1], index+startIndex))
+		return newPath;
+	}
+	return oldPath;
 }
 
 function matchFiles(matchRule) {
 	// skip useless operations
-	if (matchRule.old_name == matchRule.new_name)
+	if (matchRule.old_name == matchRule.new_name) {
+		if (settings.verbose)
+			console.log("skipping invalid rule: %s", JSON.stringify(matchRule))
+
 		return
+	}
 
 	// be loud if wanted
 	if (settings.verbose)
@@ -183,7 +218,7 @@ function processFileList(files, matchRule) {
 
 			if(settings.dryrun) {
 
-				console.log('%s %s %s', oldFile, '→'.bold, newFile)
+				console.log('%s %s %s', oldFile, '→'.white.bold, newFile)
 
 			} else {
 
@@ -238,12 +273,12 @@ function main() {
 	}
 
 	if (settings.dryrun)
-		console.log('Starting dry run...')
+		console.log('Starting dry run...'.gray)
 
 	// make sure the output dir exists
 	if (!settings.dryrun && !fs.existsSync(settings.outputFolder)) {
 		if (settings.verbose)
-			console.log('Creating output folder...')
+			console.log('Creating output folder...'.gray)
 
 		fs.mkdirSync(settings.outputFolder)
 	}
